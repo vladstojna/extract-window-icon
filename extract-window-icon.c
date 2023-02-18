@@ -280,6 +280,16 @@ static bool parse_xid(const char *id_str, xcb_window_t *ret) {
   return true;
 }
 
+cairo_status_t write_to_stream(void *closure, const unsigned char *data,
+                               unsigned int len) {
+  FILE *stream = (FILE *)closure;
+  size_t written = fwrite(data, sizeof(*data), len, stream);
+  if (written != len) {
+    return CAIRO_STATUS_WRITE_ERROR;
+  }
+  return CAIRO_STATUS_SUCCESS;
+}
+
 int main(int argc, char *argv[]) {
   xcb_window_t xid = 0;
   int screen_nr = -1;
@@ -310,18 +320,22 @@ int main(int argc, char *argv[]) {
   bool found_some_icon = false;
 
   if (hint_icon != NULL) {
-    char *filename = "wm_hints-icon.png";
-    cairo_surface_write_to_png(hint_icon, filename);
-    cairo_surface_destroy(hint_icon);
-    fprintf(stderr, "Found WM_HINTS icon (%s)\n", filename);
+    if (argc <= 2) {
+      fprintf(stderr,
+              "Found WM_HINTS icon but no 2nd argument as destination\n");
+    } else {
+      const char *filename = argv[2];
+      cairo_surface_write_to_png(hint_icon, filename);
+      cairo_surface_destroy(hint_icon);
+      fprintf(stderr, "Found WM_HINTS icon (%s)\n", filename);
+    }
     found_some_icon = true;
   }
 
   if (net_wm_icon != NULL) {
-    char *filename = "net_wm_hints-icon.png";
-    cairo_surface_write_to_png(net_wm_icon, filename);
+    cairo_surface_write_to_png_stream(net_wm_icon, &write_to_stream, stdout);
     cairo_surface_destroy(net_wm_icon);
-    fprintf(stderr, "Found _NET_WM_ICON icon (%s)\n", filename);
+    fprintf(stderr, "Found _NET_WM_ICON icon (stdout)\n");
     found_some_icon = true;
   }
 
